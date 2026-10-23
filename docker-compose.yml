@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: finance_bot_postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: finance_user
+      POSTGRES_PASSWORD: finance_password
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

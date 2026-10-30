@@ -2,13 +2,12 @@
 services:
   postgres:
     image: postgres:16
-    container_name: finance_bot_postgres
     restart: unless-stopped
 
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-finance}
       POSTGRES_USER: ${POSTGRES_USER:-finance_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -24,15 +23,15 @@ services:
 
   bot:
     build: .
-    container_name: finance_bot
     restart: unless-stopped
 
-    env_file:
-      - .env
-
     environment:
+      BOT_TOKEN: ${BOT_TOKEN:?Set BOT_TOKEN}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-finance}
+      POSTGRES_USER: ${POSTGRES_USER:-finance_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
 
     depends_on:
       postgres:

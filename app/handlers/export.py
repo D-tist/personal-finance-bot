@@ -133,8 +133,8 @@ async def create_export(
     )
 
     document = BufferedInputFile(
-        excel_data,
-        filename=filename,
+        excel_data.getvalue(),
+            filename=filename,
     )
 
     await message.answer_document(

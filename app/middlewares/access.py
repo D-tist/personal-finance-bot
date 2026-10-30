@@ -17,7 +17,7 @@ class AccessMiddleware(BaseMiddleware):
         if not isinstance(event, Update):
             return None
 
-        telegram_user = event.event_from_user
+        telegram_user = data.get("event_from_user")
 
         # Обновления без пользователя не пропускаем.
         if telegram_user is None:

@@ -1,12 +1,12 @@
-
 from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
+from app.config import ADMIN_TELEGRAM_ID
 from app.database.database import async_session
-from app.database.models import User, UserSettings
+from app.database.models import User, UserSettings, UserRole
 from app.keyboards.main import get_main_keyboard
 
 
@@ -21,27 +21,43 @@ async def cmd_start(message: Message) -> None:
         return
 
     async with async_session() as session:
-        user_insert = insert(User).values(
-            telegram_id=telegram_user.id,
-            username=telegram_user.username,
-            first_name=telegram_user.first_name,
-            last_name=telegram_user.last_name,
+        result = await session.execute(
+            select(User).where(
+                User.telegram_id == telegram_user.id
+            )
         )
+        user = result.scalar_one_or_none()
 
-        user_upsert = user_insert.on_conflict_do_update(
-            index_elements=[User.telegram_id],
-            set_={
-                "username": user_insert.excluded.username,
-                "first_name": user_insert.excluded.first_name,
-                "last_name": user_insert.excluded.last_name,
-            },
-        ).returning(User.id)
+        # Администратор всегда имеет доступ.
+        if telegram_user.id == ADMIN_TELEGRAM_ID:
+            if user is None:
+                user = User(
+                    telegram_id=telegram_user.id,
+                    username=telegram_user.username,
+                    first_name=telegram_user.first_name,
+                    last_name=telegram_user.last_name,
+                    role=UserRole.ADMIN.value,
+                    is_active=True,
+                )
+                session.add(user)
+                await session.flush()
+            else:
+                user.role = UserRole.ADMIN.value
+                user.is_active = True
 
-        result = await session.execute(user_upsert)
-        user_id = result.scalar_one()
+        # Остальные должны быть заранее добавлены администратором.
+        elif user is None or not user.is_active:
+            await message.answer(
+                "Доступ к боту закрыт. Обратитесь к администратору."
+            )
+            return
+
+        user.username = telegram_user.username
+        user.first_name = telegram_user.first_name
+        user.last_name = telegram_user.last_name
 
         settings_insert = insert(UserSettings).values(
-            user_id=user_id,
+            user_id=user.id,
             currency="RUB",
         )
 
@@ -53,8 +69,8 @@ async def cmd_start(message: Message) -> None:
         await session.commit()
 
     await message.answer(
-        f"\u041f\u0440\u0438\u0432\u0435\u0442, {telegram_user.first_name}!\n\n"
-        "\u0422\u0432\u043e\u0438 \u0434\u0430\u043d\u043d\u044b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u044b.\n\n"
-        "\u0412\u044b\u0431\u0435\u0440\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0432 \u0433\u043b\u0430\u0432\u043d\u043e\u043c \u043c\u0435\u043d\u044e:",
+        f"Привет, {telegram_user.first_name}!\n\n"
+        "Твои данные сохранены.\n\n"
+        "Выбери действие в главном меню:",
         reply_markup=get_main_keyboard(),
     )

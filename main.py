@@ -12,10 +12,14 @@ from app.handlers.reports import router as reports_router
 from app.handlers.savings import router as savings_router
 from app.handlers.budgets import router as budgets_router
 from app.handlers.export import router as export_router
+from app.middlewares.access import AccessMiddleware
+from app.handlers.whitelist import router as whitelist_router
 
 async def main() -> None:
     bot = Bot(token=BOT_TOKEN)
     dispatcher = Dispatcher()
+
+    dispatcher.update.outer_middleware(AccessMiddleware())
 
     dispatcher.include_router(start_router)
     dispatcher.include_router(transactions_router)
@@ -23,6 +27,7 @@ async def main() -> None:
     dispatcher.include_router(savings_router)
     dispatcher.include_router(reports_router)
     dispatcher.include_router(budgets_router)
+    dispatcher.include_router(whitelist_router)
     dispatcher.include_router(export_router)
     try:
         await dispatcher.start_polling(bot)

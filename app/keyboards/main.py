@@ -32,6 +32,9 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
             [
                 KeyboardButton(text="⚙️ Настройки"),
             ],
+            [
+                KeyboardButton(text="📤 Экспорт в Excel"),
+            ],
         ],
         resize_keyboard=True,
         input_field_placeholder="Выберите действие",

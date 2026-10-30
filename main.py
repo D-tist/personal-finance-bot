@@ -11,6 +11,7 @@ from app.handlers.categories import router as categories_router
 from app.handlers.reports import router as reports_router
 from app.handlers.savings import router as savings_router
 from app.handlers.budgets import router as budgets_router
+from app.handlers.export import router as export_router
 
 async def main() -> None:
     bot = Bot(token=BOT_TOKEN)
@@ -22,7 +23,7 @@ async def main() -> None:
     dispatcher.include_router(savings_router)
     dispatcher.include_router(reports_router)
     dispatcher.include_router(budgets_router)
-
+    dispatcher.include_router(export_router)
     try:
         await dispatcher.start_polling(bot)
     finally:

@@ -3,6 +3,7 @@ from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 
 from app.database.database import async_session
 from app.database.models import User, UserSettings
@@ -20,60 +21,40 @@ async def cmd_start(message: Message) -> None:
         return
 
     async with async_session() as session:
-        result = await session.execute(
-            select(User).where(
-                User.telegram_id == telegram_user.id
-            )
+        user_insert = insert(User).values(
+            telegram_id=telegram_user.id,
+            username=telegram_user.username,
+            first_name=telegram_user.first_name,
+            last_name=telegram_user.last_name,
         )
-        user = result.scalar_one_or_none()
 
-        is_new_user = user is None
+        user_upsert = user_insert.on_conflict_do_update(
+            index_elements=[User.telegram_id],
+            set_={
+                "username": user_insert.excluded.username,
+                "first_name": user_insert.excluded.first_name,
+                "last_name": user_insert.excluded.last_name,
+            },
+        ).returning(User.id)
 
-        if is_new_user:
-            user = User(
-                telegram_id=telegram_user.id,
-                username=telegram_user.username,
-                first_name=telegram_user.first_name,
-                last_name=telegram_user.last_name,
-            )
-            session.add(user)
-            await session.flush()
+        result = await session.execute(user_upsert)
+        user_id = result.scalar_one()
 
-        else:
-            user.username = telegram_user.username
-            user.first_name = telegram_user.first_name
-            user.last_name = telegram_user.last_name
-
-        settings_result = await session.execute(
-            select(UserSettings).where(
-                UserSettings.user_id == user.id
-            )
+        settings_insert = insert(UserSettings).values(
+            user_id=user_id,
+            currency="RUB",
         )
-        settings = settings_result.scalar_one_or_none()
 
-        if settings is None:
-            session.add(
-                UserSettings(
-                    user_id=user.id,
-                    currency="RUB",
-                )
-            )
+        settings_upsert = settings_insert.on_conflict_do_nothing(
+            index_elements=[UserSettings.user_id]
+        )
 
+        await session.execute(settings_upsert)
         await session.commit()
 
-    if is_new_user:
-        greeting = (
-            f"Привет, {telegram_user.first_name}!\n\n"
-            "Ты зарегистрирован в финансовом боте."
-        )
-    else:
-        greeting = (
-            f"С возвращением, {telegram_user.first_name}!\n\n"
-            "Твои данные сохранены."
-        )
-
     await message.answer(
-        f"{greeting}\n\n"
-        "Выбери действие в главном меню:",
+        f"\u041f\u0440\u0438\u0432\u0435\u0442, {telegram_user.first_name}!\n\n"
+        "\u0422\u0432\u043e\u0438 \u0434\u0430\u043d\u043d\u044b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u044b.\n\n"
+        "\u0412\u044b\u0431\u0435\u0440\u0438 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0435 \u0432 \u0433\u043b\u0430\u0432\u043d\u043e\u043c \u043c\u0435\u043d\u044e:",
         reply_markup=get_main_keyboard(),
     )
